@@ -1,0 +1,130 @@
+'use client'
+
+import { getDefaultConfig, connectorsForWallets, RainbowKitProvider, darkTheme, createAuthenticationAdapter, RainbowKitAuthenticationProvider } from '@rainbow-me/rainbowkit'
+import { trustWallet, metaMaskWallet, rainbowWallet, walletConnectWallet, coinbaseWallet } from '@rainbow-me/rainbowkit/wallets'
+import { WagmiProvider, cookieStorage, createConfig, createStorage, http } from 'wagmi'
+import { base, baseSepolia } from 'wagmi/chains'
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query"
+import { SiweMessage } from 'siwe'
+import Endpoint from '~/plugins/endpoint'
+import useUserStore from '~/stores/user'
+import IUserTokens from '~/dtos/auth/IUserTokens'
+import ApiException from '~/exceptions/ApiException'
+import env from '~/env'
+
+import '@rainbow-me/rainbowkit/styles.css'
+
+const WalletContextProvider = ({ children }: { children: React.ReactNode }) => {
+
+  const isAuthenticated = useUserStore((state) => state.isAuthenticated)
+  const login = useUserStore((state) => state.login)
+  const reset = useUserStore((state) => state.reset)
+
+  const connectors = connectorsForWallets(
+    [
+      {
+        groupName: 'Recommended',
+        wallets: [metaMaskWallet, trustWallet],
+      },
+      {
+        groupName: 'Others',
+        wallets: [rainbowWallet, coinbaseWallet, walletConnectWallet],
+      },
+    ],
+    {
+      appName: 'DropZone',
+      projectId: '0bbb35a4c90d81087cfc179e93fb4b8b',
+    }
+  )
+
+  const config = createConfig({
+    connectors,
+    chains: [base, baseSepolia],
+    transports: {
+      [base.id]: http(env.RPC_URL),
+      [baseSepolia.id]: http(env.TEST_RPC_URL),
+    },
+    ssr: true,
+  })
+
+
+  const queryClient = new QueryClient()
+
+  const authenticationAdapter = createAuthenticationAdapter({
+    getNonce: async () => {
+      const url = Endpoint.getUrl('greeting')
+      const response = await fetch(url)
+      return response.text()
+    },
+    createMessage: ({ nonce, address, chainId }) => {
+
+      const json = JSON.parse(nonce)
+      const statement = json.message
+      const _nonce = json.nonce
+
+      return new SiweMessage({
+        domain: window.location.host,
+        address,
+        statement: statement,
+        uri: window.location.origin,
+        version: '1',
+        chainId,
+        nonce: _nonce,
+      })
+    },
+    getMessageBody: ({ message }) => {
+      return message.prepareMessage()
+    },
+    verify: async ({ message, signature }) => {
+      const url = Endpoint.getUrl('user-login')
+      const payload = {
+        encodedSignature: signature,
+        siweMessage: JSON.stringify(message),
+      }
+
+      try {
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+
+        if (response.ok) {
+          const data: IUserTokens = await response.json()
+          login({
+            userTokens: data,
+            walletAddress: message.address
+          })
+          return true
+        }
+        reset()
+        return false
+
+      } catch (error) {
+        console.log(error)
+        reset()
+        new ApiException('Login Error', { payload }, { sendToast: true })
+        return false
+      }
+
+    },
+    signOut: async () => {
+      reset()
+    },
+  })
+
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitAuthenticationProvider enabled={true} adapter={authenticationAdapter} status={isAuthenticated() ? 'authenticated' : 'unauthenticated'}>
+          <RainbowKitProvider theme={darkTheme()} initialChain={env.IS_MAINNET ? base : baseSepolia}>
+            {children}
+          </RainbowKitProvider>
+        </RainbowKitAuthenticationProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
+}
+
+export default WalletContextProvider
