@@ -1,12 +1,10 @@
 "use client"
 
 import { useEffect } from "react"
-import { usePathname } from "next/navigation"
 
 import DefaultLayout from "./Default"
 import eventEmitter from '~/helpers/eventEmitter'
 import { TRole } from '~/plugins/api'
-import ImplementationException from '~/exceptions/ImplementationException'
 import { useUser } from '~/hooks/user/user'
 
 
