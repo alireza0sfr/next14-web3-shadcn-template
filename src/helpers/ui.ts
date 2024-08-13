@@ -61,3 +61,11 @@ export const getQueryParamFromURL = (param: string) => {
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export const partializeWalletAddress = (walletAddress: string): string => {
+
+  if (!walletAddress)
+    return ''
+
+  return `${walletAddress.toString().substring(0, 6)}...${walletAddress.toString().substring(walletAddress.toString().length - 4)}`
+}
