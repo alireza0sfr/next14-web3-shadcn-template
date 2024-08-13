@@ -7,13 +7,15 @@ import DefaultLayout from "./Default"
 import eventEmitter from '~/helpers/eventEmitter'
 import { TRole } from '~/plugins/api'
 import ImplementationException from '~/exceptions/ImplementationException'
+import { useUser } from '~/hooks/user/user'
 
-export default function Layout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+
+export default function Layout({ children, }: Readonly<{ children: React.ReactNode }>) {
+
+  const { logout } = useUser()
 
   const handleLogout = (role: TRole) => {
-    throw new ImplementationException('[API] handleLogout Not Implmented')
+    logout()
   }
 
   // This is used to catch events from axiosInstance when user is unauthorized, in order to disconnect wallet
