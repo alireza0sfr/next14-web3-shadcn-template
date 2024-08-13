@@ -1,0 +1,75 @@
+'use client'
+import { useCallback, useMemo } from 'react'
+import {
+  Adapter,
+  WalletAdapterNetwork,
+  WalletError,
+} from '@solana/wallet-adapter-base'
+import {
+  ConnectionProvider,
+  WalletProvider,
+} from '@solana/wallet-adapter-react'
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
+import {
+  SolflareWalletAdapter,
+  // SolletExtensionWalletAdapter,
+  // SolletWalletAdapter,
+  TorusWalletAdapter,
+  PhantomWalletAdapter,
+  LedgerWalletAdapter,
+} from '@solana/wallet-adapter-wallets'
+
+import {
+  createDefaultAddressSelector,
+  createDefaultAuthorizationResultCache,
+  createDefaultWalletNotFoundHandler,
+  SolanaMobileWalletAdapter,
+  // @ts-ignore
+} from '@solana-mobile/wallet-adapter-mobile'
+
+import env from '~/env'
+
+const WalletContextProvider = ({ children }: { children: React.ReactNode }) => {
+
+  const network = env.IS_MAINNET ? WalletAdapterNetwork.Mainnet : WalletAdapterNetwork.Devnet
+  const endpoint = env.IS_MAINNET ? env.RPC_URL : env.TEST_RPC_URL
+
+  const wallets = useMemo(
+    () => [
+      new LedgerWalletAdapter(),
+      new SolflareWalletAdapter(),
+      // new SolletWalletAdapter({ network }),
+      // new SolletExtensionWalletAdapter({ network }),
+      new TorusWalletAdapter(),
+      new PhantomWalletAdapter(),
+      new SolanaMobileWalletAdapter({
+        addressSelector: createDefaultAddressSelector(),
+        appIdentity: {
+          icon: '',
+          name: '',
+          uri: '',
+        },
+        authorizationResultCache: createDefaultAuthorizationResultCache(),
+        onWalletNotFound: createDefaultWalletNotFoundHandler(),
+      }),
+    ],
+    [network]
+  )
+
+  const onError = useCallback<(error: WalletError, adapter?: Adapter) => void>(
+    (error) => {
+      console.error(error)
+    },
+    []
+  )
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} onError={onError} autoConnect>
+        <WalletModalProvider>{children}</WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  )
+}
+
+export default WalletContextProvider
