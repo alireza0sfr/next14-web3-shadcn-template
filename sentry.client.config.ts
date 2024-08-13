@@ -25,7 +25,6 @@ if (process.env.NODE_ENV !== 'development')
     integrations: [
       Sentry.replayIntegration({
         // Additional Replay configuration goes in here, for example:
-        maskAllText: true,
         blockAllMedia: true,
       }),
     ],

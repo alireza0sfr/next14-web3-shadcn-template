@@ -1,4 +1,3 @@
-// These types are string for now
 export type TPrice = string
 export type TId = string
 

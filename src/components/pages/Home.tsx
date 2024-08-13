@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '~/components/ui/button'
-import { toastError } from '~/plugins/toast'
+import { toastSuccess } from '~/plugins/toast'
 
 export default function HomeComponent() {
   return (
@@ -9,7 +9,7 @@ export default function HomeComponent() {
       <div>
         <Button
           onClick={() => {
-            toastError('ShadCn Works!!')
+            toastSuccess('ShadCn Works!!')
           }}
         >Click Me</Button>
       </div>

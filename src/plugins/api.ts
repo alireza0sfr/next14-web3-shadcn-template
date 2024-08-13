@@ -1,55 +1,78 @@
 import axios, { AxiosInstance } from "axios"
 
-// import useUserStore from "~/stores/user"
-// import { IUserTokens } from "~/types/user"
-import { toastError } from "../plugins/toast"
+import useUserStore from "~/stores/user"
+import IUserTokens from '~/dtos/auth/IUserTokens'
 
 import eventEmitter from '~/helpers/eventEmitter'
 import Endpoint from './endpoint'
-import ApiException from '~/exceptions/ApiException'
 import ValidationException from '~/exceptions/ValidationException'
+import ApiException from '~/exceptions/ValidationException'
 import ImplementationException from '~/exceptions/ImplementationException'
 
 export type TRole = "ADMIN" | "USER"
 
 const refreshUsersToken = async (role: TRole, axiosInstance: AxiosInstance, err: any) => {
-  throw new ImplementationException('[API] refreshUsersToken Not Implmented')
+  const endpoint = Endpoint.getUrl(`${role.toLocaleLowerCase()}-refresh`)
+  const refreshToken = getRefreshToken(role)
 
-  // const endpoint = Endpoint.getUrl(`${role.toLocaleLowerCase()}-refresh`)
-  // const refreshToken = getRefreshToken(role)
-  // const userStore = useUserStore.getState()
+  const originalRequest = err.config
 
-  // const originalRequest = err.config
+  try {
+    const res = await axios.post<IUserTokens>(endpoint, {}, { headers: { Authorization: `Bearer ${refreshToken}` } })
 
-  // try {
-  //   const res = await axios.post<IUserTokens>(endpoint, {}, { headers: { Authorization: `Bearer ${refreshToken}` } })
+    if (role === 'USER') {
+      const store = useUserStore.getState()
+      store.setUserTokens(res.data)
+    }
+    else {
+      throw new ImplementationException('[API] adminStore Not Implmented')
+      // const store = useAdminStore.getState()
+      // store.setAdminTokens(res.data)
+    }
 
-  //   userStore.setUserTokens(res.data)
-  //   axiosInstance.defaults.headers.common["Authorization"] = "Bearer " + res.data.accessToken
-  //   return axiosInstance(originalRequest)
+    axiosInstance.defaults.headers.common["Authorization"] = "Bearer " + res.data.accessToken
+    return axiosInstance(originalRequest)
 
-  // } catch (e: any) {
-  //   if (e && e?.response && (e?.response?.status === 401 || e?.response?.status === 403)) {
-  //     eventEmitter.emit("unauthorized", role)
+  } catch (e: any) {
+    if (e && e?.response && (e?.response?.status === 401 || e?.response?.status === 403)) {
+      eventEmitter.emit("unauthorized", role)
 
-  //     const message = 'Your Session Has Expired!'
-  //     new ApiException(message, { error: e, role }, { sentryLogLevel: 'info', sendToast: true })
-  //     return Promise.reject(message)
-  //   }
-  //   else {
-  //     const message = 'Unable To Refresh Token'
-  //     new ApiException(message, { error: e, role }, { sentryLogLevel: 'error' })
-  //     return Promise.reject(message)
-  //   }
-  // }
+      const message = 'Your Session Has Expired!'
+      new ApiException(message, { error: e, role }, { sentryLogLevel: 'info', sendToast: true })
+      return Promise.reject(message)
+    }
+    else {
+      const message = 'Unable To Refresh Token'
+      new ApiException(message, { error: e, role }, { sentryLogLevel: 'error' })
+      return Promise.reject(message)
+    }
+  }
 }
 
-const getRefreshToken = (role: TRole): string => {
-  throw new ImplementationException('[API] getRefreshToken Not Implmented')
+const getRefreshToken = (role: TRole) => {
+
+  if (role === 'ADMIN') {
+    throw new ImplementationException('[API] adminStore Not Implmented')
+    // const adminStore = useAdminStore.getState()
+    // return adminStore?.adminTokens && adminStore?.adminTokens?.refreshToken ? adminStore?.adminTokens?.refreshToken : ''
+  }
+
+  const userStore = useUserStore.getState()
+  return userStore.userTokens && userStore.userTokens.refreshToken ? userStore.userTokens.refreshToken : ""
+
 }
 
-const getAccessToken = (role: TRole): string => {
-  throw new ImplementationException('[API] getAccessToken Not Implmented')
+const getAccessToken = (role: TRole) => {
+
+  if (role === 'ADMIN') {
+    throw new ImplementationException('[API] adminStore Not Implmented')
+    // const adminStore = useAdminStore.getState()
+    // return adminStore?.adminTokens && adminStore?.adminTokens?.accessToken ? adminStore?.adminTokens?.accessToken : ''
+  }
+
+  const userStore = useUserStore.getState()
+  return userStore.userTokens && userStore.userTokens.accessToken ? userStore.userTokens.accessToken : ""
+
 }
 
 export function useAxios(role: TRole = "USER") {
@@ -74,29 +97,23 @@ export function useAxios(role: TRole = "USER") {
       const originalRequest = err.config
       const token = getRefreshToken(role)
 
-      if (err?.response?.status === 401 && token && !originalRequest._retry) {
+      if (err?.response?.status === 401 && !originalRequest._retry) {
 
-        return await refreshUsersToken(role, axiosInstance, err)
-
-      } else if (err?.response?.data?.message) {
-        const errors = err?.response?.data?.message
-
-        let message = ""
-
-        if (typeof errors === "string")
-          message = errors
+        if (token)
+          return await refreshUsersToken(role, axiosInstance, err)
         else
-          message = errors.join("\n")
+          eventEmitter.emit("unauthorized", role)
 
-        if (err?.response.status >= 500)
-          new ApiException(message, { err, role }, { sendToast: true })
-        else
-          new ValidationException(message, { err, role }, { sendToast: true })
-
-        return Promise.reject(errors)
       } else {
-        new ApiException(err.message, { err, role }, { sendToast: true })
-        return Promise.reject(err)
+
+        const message = err?.response?.data?.message || err.message
+
+        if (err?.response.status >= 400)
+          new ValidationException(message, { err, role }, { sendToast: true })
+        else
+          new ApiException(message, { err, role }, { sendToast: true })
+
+        return Promise.reject(message)
       }
     }
   )
