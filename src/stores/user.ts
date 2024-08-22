@@ -18,6 +18,8 @@ const initialState: IUserInitialState = {
   walletAddress: '',
 }
 
+export const USER_CACHE_KEY = 'app-user'
+
 // Create your Zustand store
 const useUserStore = create<IUserState>()(
   persist(
@@ -27,7 +29,10 @@ const useUserStore = create<IUserState>()(
       setUserTokens: (userTokens: IUserTokens) => set({ userTokens: userTokens }),
       setUser: (user: UserDto) => set({ user }),
       setWalletAddress: (walletAddress: string) => set({ walletAddress }),
-      reset: () => set(initialState),
+      reset: () => {
+        cookieStorage.removeItem(USER_CACHE_KEY)
+        set(initialState)
+      },
       isAuthenticated: () => {
 
         const { userTokens } = get()
@@ -46,8 +51,7 @@ const useUserStore = create<IUserState>()(
     }),
     {
       // Pass the custom storage adapter to the middleware
-      name: 'app-user',
-      skipHydration: true,
+      name: USER_CACHE_KEY,
       storage: createJSONStorage(() => cookieStorage),
     },
   ),
