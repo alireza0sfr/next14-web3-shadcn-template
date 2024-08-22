@@ -101,8 +101,12 @@ export function useAxios(role: TRole = "USER") {
 
         if (token)
           return await refreshUsersToken(role, axiosInstance, err)
-        else
+        else {
           eventEmitter.emit("unauthorized", role)
+          const message = 'Your Session Has Expired!'
+          new ApiException(message, { error: err, role, token }, { sentryLogLevel: 'info', sendToast: true })
+          return Promise.reject(message)
+        }
 
       } else {
 
