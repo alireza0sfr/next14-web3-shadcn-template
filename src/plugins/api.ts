@@ -112,7 +112,7 @@ export function useAxios(role: TRole = "USER") {
 
         const message = err?.response?.data?.message || err.message
 
-        if (err?.response.status >= 400)
+        if (err?.response.status == 400)
           new ValidationException(message, { err, role }, { sendToast: true })
         else
           new ApiException(message, { err, role }, { sendToast: true })
